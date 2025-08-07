@@ -1,9 +1,10 @@
 import os
 from flask import Flask, render_template, request
-from crewai import Agent, Task, Crew, Process
-from crewai_tools import SerperDevTool
+from crewai import Agent, Task, Crew, Process, LLM
 from langchain_openai import AzureChatOpenAI
 from dotenv import load_dotenv
+from crewai.tools import BaseTool
+from langchain_community.utilities import GoogleSerperAPIWrapper
 
 load_dotenv()
 
@@ -11,14 +12,25 @@ app = Flask(__name__)
 
 # Initialize the AzureChatOpenAI model
 llm = AzureChatOpenAI(
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
-    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-    api_version=os.getenv("OPENAI_API_VERSION")
+    azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT"),
+    azure_deployment=os.environ.get("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
+    api_key=os.environ.get("AZURE_API_KEY"),
+    api_version=os.environ.get("AZURE_API_VERSION")
 )
 
-# Initialize the SerperDevTool for web searches
-search_tool = SerperDevTool()
+# This creates a CrewAI-compatible tool from scratch, making it stable.
+class SearchTool(BaseTool):
+    name: str = "Internet Search"
+    description: str = "A tool to search the internet for recent and relevant information. Use it to find information on any topic."
+    
+    def _run(self, search_query: str) -> str:
+        """The tool's main function."""
+        # Uses the stable LangChain wrapper internally
+        serper_wrapper = GoogleSerperAPIWrapper()
+        return serper_wrapper.run(search_query)
+
+search_tool = SearchTool()
+
 
 @app.route('/')
 def index():
@@ -37,7 +49,7 @@ def run_crew():
         backstory="You are a leading analyst at a prestigious technology think tank. Your expertise lies in sifting through vast amounts of information to identify key trends, disruptive technologies, and significant advancements in your field.",
         verbose=True,
         tools=[search_tool],
-        llm=llm
+        llm=LLM(model=f"azure/{os.environ.get('AZURE_OPENAI_CHAT_DEPLOYMENT_NAME')}")
     )
 
     # Define the Senior Content Strategist agent
@@ -46,7 +58,7 @@ def run_crew():
         goal=f'Develop and refine compelling narratives from complex research findings on {topic} from {year}, ensuring the content is engaging, informative, and tailored for a {output_format} format.',
         backstory="You are a master storyteller and content strategist, with a proven ability to transform technical research into accessible and captivating content that resonates with a broad audience. Your skill lies in identifying the core message and crafting narratives that inform, inspire, and persuade.",
         verbose=True,
-        llm=llm
+        llm=LLM(model=f"azure/{os.environ.get('AZURE_OPENAI_CHAT_DEPLOYMENT_NAME')}")
     )
 
     # Define the research task

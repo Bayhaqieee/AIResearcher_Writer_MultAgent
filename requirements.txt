@@ -1,5 +1,6 @@
 crewai 
-crewai_tools 
-langchain-openai 
+crewai_tools
+langchain-openai
+langchain-community
 python-dotenv
 flask
