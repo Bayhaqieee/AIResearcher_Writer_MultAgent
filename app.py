@@ -1,10 +1,12 @@
 import os
 from flask import Flask, render_template, request
-from crewai import Agent, Task, Crew, Process, LLM
+from crewai import Agent, Task, Crew, Process
 from langchain_openai import AzureChatOpenAI
 from dotenv import load_dotenv
+
 from crewai.tools import BaseTool
 from langchain_community.utilities import GoogleSerperAPIWrapper
+from markdown_it import MarkdownIt
 
 load_dotenv()
 
@@ -15,22 +17,20 @@ llm = AzureChatOpenAI(
     azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT"),
     azure_deployment=os.environ.get("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
     api_key=os.environ.get("AZURE_API_KEY"),
-    api_version=os.environ.get("AZURE_API_VERSION")
+    api_version=os.environ.get("AZURE_API_VERSION"),
+    model=f"azure/{os.environ.get('AZURE_OPENAI_CHAT_DEPLOYMENT_NAME')}"
 )
 
-# This creates a CrewAI-compatible tool from scratch, making it stable.
+# Custom Search Tool
 class SearchTool(BaseTool):
     name: str = "Internet Search"
     description: str = "A tool to search the internet for recent and relevant information. Use it to find information on any topic."
     
     def _run(self, search_query: str) -> str:
-        """The tool's main function."""
-        # Uses the stable LangChain wrapper internally
         serper_wrapper = GoogleSerperAPIWrapper()
         return serper_wrapper.run(search_query)
 
 search_tool = SearchTool()
-
 
 @app.route('/')
 def index():
@@ -42,50 +42,78 @@ def run_crew():
     year = request.form['year']
     output_format = request.form['output_format']
 
-    # Define the Senior AI Research Analyst agent
+    # 1. Researcher Agent
     researcher = Agent(
-        role='Senior AI Research Analyst',
-        goal=f'Identify and analyze the most impactful and recent breakthroughs in {topic} from {year}, focusing on their potential real-world applications and implications.',
-        backstory="You are a leading analyst at a prestigious technology think tank. Your expertise lies in sifting through vast amounts of information to identify key trends, disruptive technologies, and significant advancements in your field.",
+        role='Senior Research Analyst',
+        goal=f'Diligently research the topic of {topic} for the year {year}, focusing on groundbreaking advancements, key players, and statistical impacts. Synthesize your findings into a structured report.',
+        backstory=(
+            "You are a renowned Research Analyst with a Ph.D. in Technology Studies, known for your ability to distill complex topics into clear, actionable insights. "
+            "Your work is methodical, relying on credible sources to build a comprehensive understanding of the subject."
+        ),
         verbose=True,
         tools=[search_tool],
-        llm=LLM(model=f"azure/{os.environ.get('AZURE_OPENAI_CHAT_DEPLOYMENT_NAME')}")
+        llm=llm
     )
 
-    # Define the Senior Content Strategist agent
+    # 2. Writer Agent
     writer = Agent(
-        role='Senior Content Strategist',
-        goal=f'Develop and refine compelling narratives from complex research findings on {topic} from {year}, ensuring the content is engaging, informative, and tailored for a {output_format} format.',
-        backstory="You are a master storyteller and content strategist, with a proven ability to transform technical research into accessible and captivating content that resonates with a broad audience. Your skill lies in identifying the core message and crafting narratives that inform, inspire, and persuade.",
+        role='Professional Content Strategist',
+        goal=f'Using the research report on {topic} from {year}, craft a compelling and engaging piece of content tailored for the {output_format} format. Your writing must be clear, concise, and captivating for a general audience.',
+        backstory=(
+            "You are a celebrated Content Strategist, famous for your ability to weave intricate research findings into powerful narratives. "
+            "You understand how to hook a reader and explain complex ideas in a simple, elegant manner, perfectly adapting your tone for blogs, social media, or academic papers."
+        ),
         verbose=True,
-        llm=LLM(model=f"azure/{os.environ.get('AZURE_OPENAI_CHAT_DEPLOYMENT_NAME')}")
+        llm=llm
     )
 
-    # Define the research task
+    # 3. Editor Agent
+    editor = Agent(
+        role='Technical Editor & Fact-Checker',
+        goal='Review the written article for technical accuracy, grammatical correctness, and clarity. Ensure the content aligns with the initial research report and is polished to a professional standard.',
+        backstory=(
+            "You are a meticulous editor from a top-tier tech publication. With a sharp eye for detail, you catch every error, clarify every ambiguity, and verify every fact. "
+            "Your job is to ensure that every piece of content that crosses your desk is credible, flawless, and ready for publication."
+        ),
+        verbose=True,
+        llm=llm
+    )
+
+    # Task for Researcher
     task1 = Task(
-        description=f"Conduct thorough research on the most significant advancements in {topic} during {year}. Focus on identifying breakthroughs in areas such as machine learning algorithms, natural language processing, computer vision, and AI ethics. Analyze their potential impact across various industries. Synthesize your findings into a concise, well-structured report.",
-        expected_output="A detailed research report presented in bullet points. The report should clearly outline the key breakthroughs and trends identified, discuss their potential real-world applications, and briefly touch upon their implications or challenges. Ensure the report is easy to understand while maintaining technical accuracy.",
+        description=f"Conduct a comprehensive investigation into the latest advancements in '{topic}' during {year}. Identify the top 3-5 key breakthroughs, the leading companies or researchers involved, and any significant statistics or data points. Compile your findings into a structured report with clear headings.",
+        expected_output="A detailed, easy-to-read report in Markdown format. The report must contain a summary, followed by sections for each key breakthrough, including names, dates, and verifiable facts or statistics.",
         agent=researcher
     )
 
-    # Define the writing task
+    # Task for Writer
     task2 = Task(
-        description=f"Based on the provided research report on {topic} advancements from {year}, write a compelling and engaging piece for a general audience in a {output_format} format. Translate the technical findings into accessible language, highlighting their relevance and excitement. Aim for a narrative flow that captures the reader's attention.",
-        expected_output=f"A full, well-structured piece in {output_format} format of at least 4 paragraphs. The content should be engaging and informative for a general audience, effectively explaining the advancements from the research report. The tone should be enthusiastic and forward-looking.",
+        description=f"Transform the research report on '{topic}' into a compelling article for the '{output_format}' format. The article should have a catchy headline, an engaging introduction, and a clear narrative. Translate technical jargon into accessible language without sacrificing accuracy. The final output must be in Markdown.",
+        expected_output=f"A well-written article in Markdown format, perfectly suited for a '{output_format}'. It must be at least 4 paragraphs long and include headings and bullet points for readability.",
         agent=writer
     )
 
-    # Create and run the Crew
+    # Task for Editor
+    task3 = Task(
+        description="Review the draft article. Cross-reference the facts and statistics with the original research report to ensure accuracy. Proofread for any grammatical or spelling errors. Improve sentence structure for better clarity and flow. The final output must be a polished, publication-ready article in Markdown.",
+        expected_output=f"The final, polished version of the article as raw Markdown text. Do NOT include any code block formatting like ```markdown. The output should begin directly with the title.",
+        agent=editor,
+        context=[task1, task2]
+    )
+    
     crew = Crew(
-        agents=[researcher, writer],
-        tasks=[task1, task2],
+        agents=[researcher, writer, editor],
+        tasks=[task1, task2, task3],
         process=Process.sequential,
         verbose=True
     )
 
     result = crew.kickoff()
+    
+    md = MarkdownIt()
+    html_result = md.render(result.raw)
 
-    return render_template('results.html', result=result)
+    return render_template('results.html', result=html_result)
 
 if __name__ == '__main__':
     app.run(debug=True)

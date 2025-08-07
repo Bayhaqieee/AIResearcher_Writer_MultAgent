@@ -1,6 +1,7 @@
-crewai 
-crewai_tools
+crewai
+crewai-tools
 langchain-openai
 langchain-community
 python-dotenv
 flask
+markdown-it-py

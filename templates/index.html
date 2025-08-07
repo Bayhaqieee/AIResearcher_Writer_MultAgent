@@ -12,7 +12,8 @@
             <h1>AI Researcher & Writer Multi-Agent System</h1>
             <p>Leveraging Azure LLMs to deliver cutting-edge insights</p>
         </header>
-        <form action="/run_crew" method="post">
+        
+        <form id="crewForm" action="/run_crew" method="post">
             <div class="form-group">
                 <label for="topic">Research Topic</label>
                 <input type="text" id="topic" name="topic" placeholder="e.g., Quantum Computing" required>
@@ -31,6 +32,19 @@
             </div>
             <button type="submit">Generate Content</button>
         </form>
+
+        <div id="loadingIndicator" class="loading">
+            <div class="spinner"></div>
+            <p>Processing your request... This may take a moment.</p>
+        </div>
     </div>
+
+    <script>
+        // JavaScript to show the loading indicator on form submission
+        document.getElementById('crewForm').addEventListener('submit', function() {
+            document.getElementById('crewForm').style.display = 'none';
+            document.getElementById('loadingIndicator').style.display = 'block';
+        });
+    </script>
 </body>
 </html>

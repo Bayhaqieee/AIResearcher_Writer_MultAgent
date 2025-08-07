@@ -12,9 +12,11 @@
             <h1>Generated Content</h1>
             <p>Based on your research criteria</p>
         </header>
+        
         <div class="results">
-            <pre>{{ result }}</pre>
+            {{ result | safe }}
         </div>
+
         <a href="/" class="back-link">Back to Home</a>
     </div>
 </body>
