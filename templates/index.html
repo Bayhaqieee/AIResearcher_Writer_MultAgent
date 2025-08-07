@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Researcher Writer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Researcher & Writer Multi-Agent System</h1>
+            <p>Leveraging Azure LLMs to deliver cutting-edge insights</p>
+        </header>
+        <form action="/run_crew" method="post">
+            <div class="form-group">
+                <label for="topic">Research Topic</label>
+                <input type="text" id="topic" name="topic" placeholder="e.g., Quantum Computing" required>
+            </div>
+            <div class="form-group">
+                <label for="year">Year</label>
+                <input type="number" id="year" name="year" placeholder="e.g., 2024" required>
+            </div>
+            <div class="form-group">
+                <label for="output_format">Output Format</label>
+                <select id="output_format" name="output_format">
+                    <option value="Blog">Blog (Medium, LinkedIn)</option>
+                    <option value="Social Media">Social Media (Facebook, Instagram)</option>
+                    <option value="Scientific Journal">Scientific Journal</option>
+                </select>
+            </div>
+            <button type="submit">Generate Content</button>
+        </form>
+    </div>
+</body>
+</html>
